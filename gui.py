@@ -200,15 +200,29 @@ class CLPGUI:
         canvas = tk.Canvas(sim_win, width=600, height=200, bg="white")
         canvas.pack()
 
+        # Controle de setpoint
+        tk.Label(sim_win, text="Setpoint (kg):").pack(side="left")
+        setpoint_var = tk.IntVar(value=5)
+        setpoint_spin = tk.Spinbox(sim_win, from_=1, to=10, textvariable=setpoint_var, width=3)
+        setpoint_spin.pack(side="left")
+
         # Variáveis de simulação
         boxes = []
         esteira_on = False
         pistao_on = False
 
+        # Definição de pesos e cores
+        pesos_cores = [
+            (1, "blue"),
+            (4, "green"),
+            (5, "orange"),
+            (8, "purple")
+        ]
+
         def add_box():
             import random
-            peso_alto = random.choice([True, False])
-            boxes.append({"x": 10, "peso_alto": peso_alto, "desviado": False})
+            peso, cor = random.choice(pesos_cores)
+            boxes.append({"x": 10, "peso": peso, "cor": cor, "desviado": False})
 
         def update_sim():
             nonlocal esteira_on, pistao_on
@@ -216,15 +230,14 @@ class CLPGUI:
             pistao_on = self.clp.outputs[2]   # Q2
 
             presenca = False
-            peso_alto = False
+            peso_caixa = 0
             for box in boxes:
-                # Verifica se a caixa está sobre o sensor
                 sobre_sensor = 240 < box["x"] < 260 and not box["desviado"]
                 if sobre_sensor:
                     presenca = True
-                    peso_alto = box["peso_alto"]
-                    # Se pistão ativado e peso alto, desvia a caixa
-                    if pistao_on and box["peso_alto"]:
+                    peso_caixa = box["peso"]
+                    # Se pistão ativado e peso >= setpoint, desvia a caixa
+                    if pistao_on and box["peso"] >= setpoint_var.get():
                         box["desviado"] = True
 
                 # Só move a caixa se:
@@ -233,12 +246,16 @@ class CLPGUI:
                 if not sobre_sensor or esteira_on:
                     if not box["desviado"]:
                         box["x"] += 5
+                # Se desviado, move para baixo (expulsão)
+                if box["desviado"]:
+                    box["y"] = box.get("y", 110) + 10  # move para baixo
 
             self.clp.inputs[1] = presenca  # I1: presença
-            self.clp.inputs[2] = peso_alto if presenca else False  # I2: peso alto
+            # I2: peso >= setpoint
+            self.clp.inputs[2] = (peso_caixa >= setpoint_var.get()) if presenca else False
 
-            # Remove caixas que saíram da esteira
-            boxes[:] = [box for box in boxes if box["x"] < 570]
+            # Remove caixas que saíram da esteira ou foram expulsas para fora da área
+            boxes[:] = [box for box in boxes if (not box["desviado"] and box["x"] < 570) or (box["desviado"] and box.get("y", 110) < 200)]
 
             # Adiciona nova caixa se necessário
             if not boxes or boxes[-1]["x"] > 120:
@@ -258,10 +275,10 @@ class CLPGUI:
                 canvas.create_rectangle(260, 70, 290, 100, fill="red")
             # Caixas
             for box in boxes:
-                color = "orange" if box["peso_alto"] else "lightblue"
-                y1 = 110
-                y2 = 135 if not box["desviado"] else 170
-                canvas.create_rectangle(box["x"], y1, box["x"]+30, y2, fill=color, outline="black")
+                y1 = box.get("y", 110)
+                y2 = y1 + 25 if not box["desviado"] else y1 + 25
+                canvas.create_rectangle(box["x"], y1, box["x"]+30, y2, fill=box["cor"], outline="black")
+                canvas.create_text(box["x"]+15, y1+10, text=f"{box['peso']}kg", fill="white", font=("Arial", 8, "bold"))
 
         add_box()
         update_sim()
