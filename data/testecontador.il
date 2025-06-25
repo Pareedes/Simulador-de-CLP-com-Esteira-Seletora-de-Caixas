@@ -1,0 +1,3 @@
+LD I2
+CTU C0 3
+OUT Q2
