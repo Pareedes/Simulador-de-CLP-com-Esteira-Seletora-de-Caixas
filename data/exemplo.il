@@ -1,0 +1,3 @@
+LD I0
+TON T0 10
+OUT Q0
