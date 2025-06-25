@@ -48,18 +48,18 @@ class CLPGUI:
             self.output_labels.append(lbl)
 
         # Editor de programa
-        self.text_program = tk.Text(frame_program, width=50, height=20)
+        self.text_program = tk.Text(frame_program, width=50, height=20, state="disabled")
         self.text_program.pack()
 
         # Botões de controle
-        btn_run = ttk.Button(frame_control, text="RUN", command=lambda: self.set_mode("RUN"))
-        btn_run.grid(row=0, column=0, padx=5, pady=5)
+        self.btn_run = ttk.Button(frame_control, text="RUN", command=lambda: self.set_mode("RUN"))
+        self.btn_run.grid(row=0, column=0, padx=5, pady=5)
 
-        btn_stop = ttk.Button(frame_control, text="STOP", command=lambda: self.set_mode("STOP"))
-        btn_stop.grid(row=0, column=1, padx=5, pady=5)
+        self.btn_stop = ttk.Button(frame_control, text="STOP", command=lambda: self.set_mode("STOP"))
+        self.btn_stop.grid(row=0, column=1, padx=5, pady=5)
 
-        btn_program = ttk.Button(frame_control, text="PROGRAM", command=lambda: self.set_mode("PROGRAM"))
-        btn_program.grid(row=0, column=2, padx=5, pady=5)
+        self.btn_program = ttk.Button(frame_control, text="PROGRAM", command=lambda: self.set_mode("PROGRAM"))
+        self.btn_program.grid(row=0, column=2, padx=5, pady=5)
 
         btn_load = ttk.Button(frame_control, text="Carregar", command=self.load_program)
         btn_load.grid(row=0, column=3, padx=5, pady=5)
@@ -69,6 +69,9 @@ class CLPGUI:
 
         btn_exec = ttk.Button(frame_control, text="Executar Programa", command=self.load_program_from_text)
         btn_exec.grid(row=0, column=5, padx=5, pady=5)
+
+        btn_sim = ttk.Button(self.root, text="Simulação Esteira", command=self.open_simulation_window)
+        btn_sim.grid(row=3, column=0, columnspan=2, pady=10)
 
         # Data Table de variáveis
         frame_table = ttk.LabelFrame(self.root, text="Data Table (Variáveis)")
@@ -90,6 +93,32 @@ class CLPGUI:
             self.clp.start()
         else:
             self.clp.stop()
+        if mode == "PROGRAM":
+            self.clp.reset()
+            self.text_program.config(state="normal")
+        else:
+            self.text_program.config(state="disabled")
+        self.update_mode_buttons()
+
+    def update_mode_buttons(self):
+        # Reseta estilos
+        self.btn_run.config(style="TButton")
+        self.btn_stop.config(style="TButton")
+        self.btn_program.config(style="TButton")
+
+        # Cria estilos customizados se ainda não existem
+        style = ttk.Style()
+        style.map("Run.TButton", background=[("active", "green"), ("!active", "green")])
+        style.map("Stop.TButton", background=[("active", "red"), ("!active", "red")])
+        style.map("Program.TButton", background=[("active", "blue"), ("!active", "blue")])
+
+        # Destaca o botão do modo atual
+        if self.clp.mode == "RUN":
+            self.btn_run.config(style="Run.TButton")
+        elif self.clp.mode == "STOP":
+            self.btn_stop.config(style="Stop.TButton")
+        elif self.clp.mode == "PROGRAM":
+            self.btn_program.config(style="Program.TButton")
 
     def load_program_from_text(self):
         code = self.text_program.get("1.0", tk.END)
@@ -163,7 +192,96 @@ class CLPGUI:
 
         # Loop de atualização
         self.root.after(200, self.update_gui)
+        self.update_mode_buttons()
 
+    def open_simulation_window(self):
+        sim_win = tk.Toplevel(self.root)
+        sim_win.title("Ambiente de Simulação: Esteira Seletora de Caixas")
+        canvas = tk.Canvas(sim_win, width=600, height=200, bg="white")
+        canvas.pack()
+
+        # Controle de setpoint
+        tk.Label(sim_win, text="Setpoint (kg):").pack(side="left")
+        setpoint_var = tk.IntVar(value=5)
+        setpoint_spin = tk.Spinbox(sim_win, from_=1, to=10, textvariable=setpoint_var, width=3)
+        setpoint_spin.pack(side="left")
+
+        # Variáveis de simulação
+        boxes = []
+        esteira_on = False
+        pistao_on = False
+
+        # Definição de pesos e cores
+        pesos_cores = [
+            (1, "blue"),
+            (4, "green"),
+            (5, "orange"),
+            (8, "purple")
+        ]
+
+        def add_box():
+            import random
+            peso, cor = random.choice(pesos_cores)
+            boxes.append({"x": 10, "peso": peso, "cor": cor, "desviado": False})
+
+        def update_sim():
+            nonlocal esteira_on, pistao_on
+            esteira_on = self.clp.outputs[1]  # Q1
+            pistao_on = self.clp.outputs[2]   # Q2
+
+            presenca = False
+            peso_caixa = 0
+            for box in boxes:
+                sobre_sensor = 240 < box["x"] < 260 and not box["desviado"]
+                if sobre_sensor:
+                    presenca = True
+                    peso_caixa = box["peso"]
+                    # Se pistão ativado e peso >= setpoint, desvia a caixa
+                    if pistao_on and box["peso"] >= setpoint_var.get():
+                        box["desviado"] = True
+
+                # Só move a caixa se:
+                # - Ela não está sobre o sensor, ou
+                # - A esteira está ligada
+                if not sobre_sensor or esteira_on:
+                    if not box["desviado"]:
+                        box["x"] += 5
+                # Se desviado, move para baixo (expulsão)
+                if box["desviado"]:
+                    box["y"] = box.get("y", 110) + 10  # move para baixo
+
+            self.clp.inputs[1] = presenca  # I1: presença
+            # I2: peso >= setpoint
+            self.clp.inputs[2] = (peso_caixa >= setpoint_var.get()) if presenca else False
+
+            # Remove caixas que saíram da esteira ou foram expulsas para fora da área
+            boxes[:] = [box for box in boxes if (not box["desviado"] and box["x"] < 570) or (box["desviado"] and box.get("y", 110) < 200)]
+
+            # Adiciona nova caixa se necessário
+            if not boxes or boxes[-1]["x"] > 120:
+                add_box()
+
+            draw_sim()
+            sim_win.after(100, update_sim)
+
+        def draw_sim():
+            canvas.delete("all")
+            # Esteira
+            canvas.create_rectangle(0, 100, 600, 140, fill="gray")
+            # Sensor de presença
+            canvas.create_rectangle(250, 90, 260, 150, fill="yellow" if self.clp.inputs[1] else "white")
+            # Pistão
+            if pistao_on:
+                canvas.create_rectangle(260, 70, 290, 100, fill="red")
+            # Caixas
+            for box in boxes:
+                y1 = box.get("y", 110)
+                y2 = y1 + 25 if not box["desviado"] else y1 + 25
+                canvas.create_rectangle(box["x"], y1, box["x"]+30, y2, fill=box["cor"], outline="black")
+                canvas.create_text(box["x"]+15, y1+10, text=f"{box['peso']}kg", fill="white", font=("Arial", 8, "bold"))
+
+        add_box()
+        update_sim()
 
 if __name__ == "__main__":
     root = tk.Tk()
