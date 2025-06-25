@@ -120,5 +120,5 @@ class CLPSimulator:
         self.inputs = [False] * 8
         self.outputs = [False] * 8
         self.memories = [False] * 32
-        self.timers.clear()
-        self.counters.clear()
+        self.timers = {f"T{i}": {"preset": 0, "acc": 0, "enabled": False, "done": False, "last_state": False} for i in range(32)}
+        self.counters = {f"C{i}": {"preset": 0, "acc": 0, "enabled": False, "done": False, "last_state": False} for i in range(32)}

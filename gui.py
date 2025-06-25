@@ -48,7 +48,7 @@ class CLPGUI:
             self.output_labels.append(lbl)
 
         # Editor de programa
-        self.text_program = tk.Text(frame_program, width=50, height=20)
+        self.text_program = tk.Text(frame_program, width=50, height=20, state="disabled")
         self.text_program.pack()
 
         # Botões de controle
@@ -90,6 +90,11 @@ class CLPGUI:
             self.clp.start()
         else:
             self.clp.stop()
+        if mode == "PROGRAM":
+            self.clp.reset()
+            self.text_program.config(state="normal")
+        else:
+            self.text_program.config(state="disabled")
         self.update_mode_buttons()
 
     def update_mode_buttons(self):
