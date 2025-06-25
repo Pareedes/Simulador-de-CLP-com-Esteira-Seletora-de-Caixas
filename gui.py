@@ -52,14 +52,14 @@ class CLPGUI:
         self.text_program.pack()
 
         # Botões de controle
-        btn_run = ttk.Button(frame_control, text="RUN", command=lambda: self.set_mode("RUN"))
-        btn_run.grid(row=0, column=0, padx=5, pady=5)
+        self.btn_run = ttk.Button(frame_control, text="RUN", command=lambda: self.set_mode("RUN"))
+        self.btn_run.grid(row=0, column=0, padx=5, pady=5)
 
-        btn_stop = ttk.Button(frame_control, text="STOP", command=lambda: self.set_mode("STOP"))
-        btn_stop.grid(row=0, column=1, padx=5, pady=5)
+        self.btn_stop = ttk.Button(frame_control, text="STOP", command=lambda: self.set_mode("STOP"))
+        self.btn_stop.grid(row=0, column=1, padx=5, pady=5)
 
-        btn_program = ttk.Button(frame_control, text="PROGRAM", command=lambda: self.set_mode("PROGRAM"))
-        btn_program.grid(row=0, column=2, padx=5, pady=5)
+        self.btn_program = ttk.Button(frame_control, text="PROGRAM", command=lambda: self.set_mode("PROGRAM"))
+        self.btn_program.grid(row=0, column=2, padx=5, pady=5)
 
         btn_load = ttk.Button(frame_control, text="Carregar", command=self.load_program)
         btn_load.grid(row=0, column=3, padx=5, pady=5)
@@ -90,6 +90,27 @@ class CLPGUI:
             self.clp.start()
         else:
             self.clp.stop()
+        self.update_mode_buttons()
+
+    def update_mode_buttons(self):
+        # Reseta estilos
+        self.btn_run.config(style="TButton")
+        self.btn_stop.config(style="TButton")
+        self.btn_program.config(style="TButton")
+
+        # Cria estilos customizados se ainda não existem
+        style = ttk.Style()
+        style.map("Run.TButton", background=[("active", "green"), ("!active", "green")])
+        style.map("Stop.TButton", background=[("active", "red"), ("!active", "red")])
+        style.map("Program.TButton", background=[("active", "blue"), ("!active", "blue")])
+
+        # Destaca o botão do modo atual
+        if self.clp.mode == "RUN":
+            self.btn_run.config(style="Run.TButton")
+        elif self.clp.mode == "STOP":
+            self.btn_stop.config(style="Stop.TButton")
+        elif self.clp.mode == "PROGRAM":
+            self.btn_program.config(style="Program.TButton")
 
     def load_program_from_text(self):
         code = self.text_program.get("1.0", tk.END)
@@ -163,6 +184,7 @@ class CLPGUI:
 
         # Loop de atualização
         self.root.after(200, self.update_gui)
+        self.update_mode_buttons()
 
 
 if __name__ == "__main__":
