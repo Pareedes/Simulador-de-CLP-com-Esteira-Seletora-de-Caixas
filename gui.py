@@ -70,6 +70,9 @@ class CLPGUI:
         btn_exec = ttk.Button(frame_control, text="Executar Programa", command=self.load_program_from_text)
         btn_exec.grid(row=0, column=5, padx=5, pady=5)
 
+        btn_sim = ttk.Button(self.root, text="Simulação Esteira", command=self.open_simulation_window)
+        btn_sim.grid(row=3, column=0, columnspan=2, pady=10)
+
         # Data Table de variáveis
         frame_table = ttk.LabelFrame(self.root, text="Data Table (Variáveis)")
         frame_table.grid(row=2, column=0, columnspan=2, padx=10, pady=10, sticky="ew")
@@ -191,6 +194,77 @@ class CLPGUI:
         self.root.after(200, self.update_gui)
         self.update_mode_buttons()
 
+    def open_simulation_window(self):
+        sim_win = tk.Toplevel(self.root)
+        sim_win.title("Ambiente de Simulação: Esteira Seletora de Caixas")
+        canvas = tk.Canvas(sim_win, width=600, height=200, bg="white")
+        canvas.pack()
+
+        # Variáveis de simulação
+        boxes = []
+        esteira_on = False
+        pistao_on = False
+
+        def add_box():
+            import random
+            peso_alto = random.choice([True, False])
+            boxes.append({"x": 10, "peso_alto": peso_alto, "desviado": False})
+
+        def update_sim():
+            nonlocal esteira_on, pistao_on
+            esteira_on = self.clp.outputs[1]  # Q1
+            pistao_on = self.clp.outputs[2]   # Q2
+
+            presenca = False
+            peso_alto = False
+            for box in boxes:
+                # Verifica se a caixa está sobre o sensor
+                sobre_sensor = 240 < box["x"] < 260 and not box["desviado"]
+                if sobre_sensor:
+                    presenca = True
+                    peso_alto = box["peso_alto"]
+                    # Se pistão ativado e peso alto, desvia a caixa
+                    if pistao_on and box["peso_alto"]:
+                        box["desviado"] = True
+
+                # Só move a caixa se:
+                # - Ela não está sobre o sensor, ou
+                # - A esteira está ligada
+                if not sobre_sensor or esteira_on:
+                    if not box["desviado"]:
+                        box["x"] += 5
+
+            self.clp.inputs[1] = presenca  # I1: presença
+            self.clp.inputs[2] = peso_alto if presenca else False  # I2: peso alto
+
+            # Remove caixas que saíram da esteira
+            boxes[:] = [box for box in boxes if box["x"] < 570]
+
+            # Adiciona nova caixa se necessário
+            if not boxes or boxes[-1]["x"] > 120:
+                add_box()
+
+            draw_sim()
+            sim_win.after(100, update_sim)
+
+        def draw_sim():
+            canvas.delete("all")
+            # Esteira
+            canvas.create_rectangle(0, 100, 600, 140, fill="gray")
+            # Sensor de presença
+            canvas.create_rectangle(250, 90, 260, 150, fill="yellow" if self.clp.inputs[1] else "white")
+            # Pistão
+            if pistao_on:
+                canvas.create_rectangle(260, 70, 290, 100, fill="red")
+            # Caixas
+            for box in boxes:
+                color = "orange" if box["peso_alto"] else "lightblue"
+                y1 = 110
+                y2 = 135 if not box["desviado"] else 170
+                canvas.create_rectangle(box["x"], y1, box["x"]+30, y2, fill=color, outline="black")
+
+        add_box()
+        update_sim()
 
 if __name__ == "__main__":
     root = tk.Tk()

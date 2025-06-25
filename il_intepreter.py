@@ -7,7 +7,14 @@ class ILInterpreter:
         self.acc = False  # Acumulador lógico
 
     def get_value(self, address):
-        """Lê valor de uma variável (I, Q, M)"""
+        """Lê valor de uma variável (I, Q, M) ou constante TRUE/FALSE"""
+        if address is None:
+            return False
+        addr_upper = address.upper()
+        if addr_upper == "TRUE":
+            return True
+        if addr_upper == "FALSE":
+            return False
         prefix, index = address[0], address[1:]
         if prefix == "I":
             return self.clp.inputs[int(index)]
