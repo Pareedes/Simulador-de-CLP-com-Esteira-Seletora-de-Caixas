@@ -99,12 +99,15 @@ class CLPGUI:
         self.clp.set_mode(mode)
         if mode == "RUN":
             self.clp.start()
-        else:
+            self.sim_paused = False
+        elif mode == "STOP":
             self.clp.stop()
-        if mode == "PROGRAM":
+            self.sim_paused = True  # Pausa a simulação
+        elif mode == "PROGRAM":
             self.clp.reset()
+            self.sim_paused = True  # Pausa e reseta a simulação
             self.text_program.config(state="normal")
-            self.update_input_buttons()  # <-- Adicione esta linha
+            self.update_input_buttons()
         else:
             self.text_program.config(state="disabled")
         self.update_mode_buttons()
@@ -214,11 +217,16 @@ class CLPGUI:
         total_desviadas = tk.IntVar(value=0)
         total_normais = tk.IntVar(value=0)
 
-        # Controle de setpoint
-        tk.Label(sim_win, text="Setpoint (kg):").pack(side="left")
-        setpoint_var = tk.IntVar(value=5)
-        setpoint_spin = tk.Spinbox(sim_win, from_=1, to=10, textvariable=setpoint_var, width=3)
-        setpoint_spin.pack(side="left")
+        # Controle de setpoints
+        tk.Label(sim_win, text="Setpoint Médio (kg):").pack(side="left")
+        setpoint_medio_var = tk.IntVar(value=4)
+        setpoint_medio_spin = tk.Spinbox(sim_win, from_=1, to=10, textvariable=setpoint_medio_var, width=3)
+        setpoint_medio_spin.pack(side="left")
+
+        tk.Label(sim_win, text="Setpoint Pesado (kg):").pack(side="left")
+        setpoint_pesado_var = tk.IntVar(value=6)
+        setpoint_pesado_spin = tk.Spinbox(sim_win, from_=1, to=10, textvariable=setpoint_pesado_var, width=3)
+        setpoint_pesado_spin.pack(side="left")
 
         # Exibição dos contadores
         frame_count = tk.Frame(sim_win)
@@ -227,6 +235,12 @@ class CLPGUI:
         tk.Label(frame_count, textvariable=total_passaram, width=4).pack(side="left")
         tk.Label(frame_count, text=" | Desviadas:").pack(side="left")
         tk.Label(frame_count, textvariable=total_desviadas, width=4).pack(side="left")
+        tk.Label(frame_count, text=" | Desv. Médio:").pack(side="left")
+        desviadas_medio_var = tk.IntVar(value=0)
+        tk.Label(frame_count, textvariable=desviadas_medio_var, width=4).pack(side="left")
+        tk.Label(frame_count, text=" | Desv. Pesado:").pack(side="left")
+        desviadas_pesado_var = tk.IntVar(value=0)
+        tk.Label(frame_count, textvariable=desviadas_pesado_var, width=4).pack(side="left")
         tk.Label(frame_count, text=" | Entregues:").pack(side="left")
         tk.Label(frame_count, textvariable=total_normais, width=4).pack(side="left")
 
@@ -234,11 +248,14 @@ class CLPGUI:
         boxes = []
         esteira_on = False
         pistao_on = False
+        pistao2_on = False
 
         # Para uso como entradas digitais do CLP
         self.caixas_passaram = 0
         self.caixas_desviadas = 0
         self.caixas_normais = 0
+
+        self.sim_paused = False  # Adicione este atributo à classe CLPGUI
 
         # Definição de pesos e cores
         pesos_cores = [
@@ -254,51 +271,62 @@ class CLPGUI:
             boxes.append({"x": 10, "peso": peso, "cor": cor, "desviado": False, "y": 110})
 
         def update_sim():
-            nonlocal esteira_on, pistao_on
-            if self.clp.mode != "RUN":
+            nonlocal esteira_on, pistao_on, pistao2_on
+
+            # Pausa simulação se STOP ou PROGRAM
+            if getattr(self, "sim_paused", False):
                 draw_sim()
                 sim_win.after(100, update_sim)
                 return
 
             esteira_on = self.clp.outputs[1]  # Q1
-            pistao_on = self.clp.outputs[2]   # Q2
+            pistao_on = self.clp.outputs[2]   # Q2 (desvio médio)
+            pistao2_on = self.clp.outputs[3]  # Q3 (desvio pesado)
 
             presenca = False
             peso_caixa = 0
             for box in boxes:
-                sobre_sensor = 240 < box["x"] < 260 and not box["desviado"]
+                sobre_sensor = 240 < box["x"] < 260 and not box.get("desviado")
                 if sobre_sensor:
                     presenca = True
                     peso_caixa = box["peso"]
-                    # Se pistão ativado e peso >= setpoint, desvia a caixa
-                    if pistao_on and box["peso"] >= setpoint_var.get():
-                        box["desviado"] = True
+                    # Desvio médio: setpoint_medio <= peso < setpoint_pesado
+                    if pistao_on and setpoint_medio_var.get() <= box["peso"] < setpoint_pesado_var.get():
+                        box["desviado"] = "medio"
+                    # Desvio pesado: peso >= setpoint_pesado
+                    elif pistao2_on and box["peso"] >= setpoint_pesado_var.get():
+                        box["desviado"] = "pesado"
 
-                # Só move a caixa se:
-                # - Ela não está sobre o sensor, ou
-                # - A esteira está ligada
                 if not sobre_sensor or esteira_on:
-                    if not box["desviado"]:
+                    if not box.get("desviado"):
                         box["x"] += 5
-                # Se desviado, move para baixo (expulsão)
-                if box["desviado"]:
-                    box["y"] += 10  # move para baixo acumulativamente
+                if box.get("desviado") == "medio":
+                    box["y"] += 10
+                if box.get("desviado") == "pesado":
+                    box["y"] -= 10
 
             self.clp.inputs[1] = presenca
-            self.clp.inputs[2] = (peso_caixa >= setpoint_var.get()) if presenca else False
+            # I2: médio, I3: pesado
+            self.clp.inputs[2] = (setpoint_medio_var.get() <= peso_caixa < setpoint_pesado_var.get()) if presenca else False
+            self.clp.inputs[3] = (peso_caixa >= setpoint_pesado_var.get()) if presenca else False
 
             # Contagem de caixas
             count_passaram = total_passaram.get()
             count_desviadas = total_desviadas.get()
             count_normais = total_normais.get()
+            count_desviadas_medio = 0
+            count_desviadas_pesado = 0
             novas_caixas = []
             for box in boxes:
-                # Caixa desviada saiu da tela
-                if box["desviado"] and box["y"] >= 200:
+                if box.get("desviado") == "medio" and box["y"] >= 200:
                     count_passaram += 1
                     count_desviadas += 1
-                # Caixa normal saiu da esteira
-                elif not box["desviado"] and box["x"] >= 570:
+                    count_desviadas_medio += 1
+                elif box.get("desviado") == "pesado" and box["y"] <= 0:
+                    count_passaram += 1
+                    count_desviadas += 1
+                    count_desviadas_pesado += 1
+                elif not box.get("desviado") and box["x"] >= 570:
                     count_passaram += 1
                     count_normais += 1
                 else:
@@ -308,11 +336,20 @@ class CLPGUI:
             total_passaram.set(count_passaram)
             total_desviadas.set(count_desviadas)
             total_normais.set(count_normais)
+            desviadas_medio_var.set(count_desviadas_medio)
+            desviadas_pesado_var.set(count_desviadas_pesado)
 
-            # Atualiza variáveis para uso no CLP (exemplo: entradas I6, I7, I5)
-            self.clp.inputs[5] = count_passaram >= 5   # I5: 5 caixas passaram
-            self.clp.inputs[6] = count_desviadas >= 3  # I6: 3 caixas desviadas
-            self.clp.inputs[7] = count_normais >= 2    # I7: 2 caixas normais
+            # Exiba os contadores na interface (opcional)
+            # Exemplo: print(f"Desviadas Médio: {count_desviadas_medio}, Desviadas Pesado: {count_desviadas_pesado}")
+
+            # Atualiza variáveis para uso no CLP
+            self.clp.inputs[5] = count_passaram >= 5
+            self.clp.inputs[6] = count_desviadas >= 3
+            self.clp.inputs[7] = count_normais >= 2
+
+            # Você pode usar memórias ou outras entradas para expor os contadores individuais:
+            self.clp.memories[10] = count_desviadas_medio  # Exemplo: M10 = desviadas médio
+            self.clp.memories[11] = count_desviadas_pesado # Exemplo: M11 = desviadas pesado
 
             if not boxes or boxes[-1]["x"] > 120:
                 add_box()
@@ -327,8 +364,12 @@ class CLPGUI:
             # Sensor de presença
             canvas.create_rectangle(250, 90, 260, 150, fill="yellow" if self.clp.inputs[1] else "white")
             # Pistão
+            # Pistão médio
             if pistao_on:
                 canvas.create_rectangle(260, 70, 290, 100, fill="red")
+            # Pistão pesado
+            if pistao2_on:
+                canvas.create_rectangle(220, 60, 250, 90, fill="purple")
             # Caixas
             for box in boxes:
                 y1 = box.get("y", 110)
