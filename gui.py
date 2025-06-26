@@ -223,7 +223,7 @@ class CLPGUI:
         # Exibição dos contadores
         frame_count = tk.Frame(sim_win)
         frame_count.pack(side="bottom", fill="x")
-        tk.Label(frame_count, text="Total:").pack(side="left")
+        tk.Label(frame_count, text="Total Passaram:").pack(side="left")
         tk.Label(frame_count, textvariable=total_passaram, width=4).pack(side="left")
         tk.Label(frame_count, text=" | Desviadas:").pack(side="left")
         tk.Label(frame_count, textvariable=total_desviadas, width=4).pack(side="left")
@@ -251,7 +251,7 @@ class CLPGUI:
         def add_box():
             import random
             peso, cor = random.choice(pesos_cores)
-            boxes.append({"x": 10, "peso": peso, "cor": cor, "desviado": False})
+            boxes.append({"x": 10, "peso": peso, "cor": cor, "desviado": False, "y": 110})
 
         def update_sim():
             nonlocal esteira_on, pistao_on
@@ -270,14 +270,19 @@ class CLPGUI:
                 if sobre_sensor:
                     presenca = True
                     peso_caixa = box["peso"]
+                    # Se pistão ativado e peso >= setpoint, desvia a caixa
                     if pistao_on and box["peso"] >= setpoint_var.get():
                         box["desviado"] = True
 
+                # Só move a caixa se:
+                # - Ela não está sobre o sensor, ou
+                # - A esteira está ligada
                 if not sobre_sensor or esteira_on:
                     if not box["desviado"]:
                         box["x"] += 5
+                # Se desviado, move para baixo (expulsão)
                 if box["desviado"]:
-                    box["y"] = box.get("y", 110) + 10  # move para baixo
+                    box["y"] += 10  # move para baixo acumulativamente
 
             self.clp.inputs[1] = presenca
             self.clp.inputs[2] = (peso_caixa >= setpoint_var.get()) if presenca else False
@@ -289,7 +294,7 @@ class CLPGUI:
             novas_caixas = []
             for box in boxes:
                 # Caixa desviada saiu da tela
-                if box["desviado"] and box.get("y", 110) >= 200:
+                if box["desviado"] and box["y"] >= 200:
                     count_passaram += 1
                     count_desviadas += 1
                 # Caixa normal saiu da esteira

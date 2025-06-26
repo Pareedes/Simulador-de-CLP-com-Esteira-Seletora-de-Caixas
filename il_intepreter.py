@@ -7,7 +7,7 @@ class ILInterpreter:
         self.acc = False  # Acumulador lógico
 
     def get_value(self, address):
-        """Lê valor de uma variável (I, Q, M) ou constante TRUE/FALSE"""
+        """Lê valor de uma variável (I, Q, M, T, C) ou constante TRUE/FALSE"""
         if address is None:
             return False
         addr_upper = address.upper()
@@ -22,11 +22,16 @@ class ILInterpreter:
             return self.clp.outputs[int(index)]
         elif prefix == "M":
             return self.clp.memories[int(index)]
+        elif prefix == "T":
+            # Retorna o estado 'done' do temporizador
+            return self.clp.timers.get(address, {}).get("done", False)
+        elif prefix == "C":
+            # Retorna o estado 'done' do contador
+            return self.clp.counters.get(address, {}).get("done", False)
         else:
             raise ValueError(f"Endereço inválido: {address}")
 
     def set_value(self, address, value):
-        """Escreve valor em uma variável (Q ou M)"""
         prefix, index = address[0], address[1:]
         if prefix == "Q":
             self.clp.outputs[int(index)] = value
