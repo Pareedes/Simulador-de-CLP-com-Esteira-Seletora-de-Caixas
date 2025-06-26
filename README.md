@@ -1,5 +1,9 @@
 # 🧾 **Documentação – Simulador de CLP com Esteira Seletora de Caixas**
 
+## Autores
+
+Gabriel Paredes Ferreira, Vitor Augusto Gonçalves Reis e Kelmson Leandro Rodrigues
+
 ## 📌 Objetivo
 
 Simular o comportamento de um CLP (Controlador Lógico Programável), um interpretador de linguagem de Lista de Instruções (IL), variáveis internas (entradas, saídas, memórias, temporizadores e contadores) e um ambiente gráfico simulando uma esteira seletora de caixas.
