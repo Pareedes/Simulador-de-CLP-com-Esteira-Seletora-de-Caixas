@@ -9,6 +9,28 @@ class CLPGUI:
         self.root = root
         self.root.title("Simulador de CLP")
 
+        self.total_passaram = None
+        self.total_desviadas = None
+        self.total_normais = None
+        self.desviadas_medio_var = None
+        self.desviadas_pesado_var = None
+
+        # --- Adiciona Canvas com Scrollbar ---
+        self.main_canvas = tk.Canvas(self.root)
+        self.scrollbar = ttk.Scrollbar(self.root, orient="vertical", command=self.main_canvas.yview)
+        self.main_canvas.configure(yscrollcommand=self.scrollbar.set)
+
+        # Use apenas pack() no root
+        self.main_canvas.pack(side="left", fill="both", expand=True)
+        self.scrollbar.pack(side="right", fill="y")
+
+        # Dentro do content_frame, use grid() à vontade
+        self.content_frame = ttk.Frame(self.main_canvas)
+        self.main_canvas.create_window((0, 0), window=self.content_frame, anchor="nw")
+
+        # Atualiza scrollregion quando widgets são adicionados/redimensionados
+        self.content_frame.bind("<Configure>", lambda e: self.main_canvas.configure(scrollregion=self.main_canvas.bbox("all")))
+
         self.clp = CLPSimulator()
 
         self.build_ui()
@@ -18,13 +40,13 @@ class CLPGUI:
 
     def build_ui(self):
         # Frames principais
-        frame_io = ttk.LabelFrame(self.root, text="Entradas e Saídas")
+        frame_io = ttk.LabelFrame(self.content_frame, text="Entradas e Saídas")
         frame_io.grid(row=0, column=0, padx=10, pady=10, sticky="nsew")
 
-        frame_program = ttk.LabelFrame(self.root, text="Editor de Programa")
+        frame_program = ttk.LabelFrame(self.content_frame, text="Editor de Programa")
         frame_program.grid(row=0, column=1, padx=10, pady=10, sticky="nsew")
 
-        frame_control = ttk.LabelFrame(self.root, text="Controle")
+        frame_control = ttk.LabelFrame(self.content_frame, text="Controle")
         frame_control.grid(row=1, column=0, columnspan=2, padx=10, pady=10, sticky="ew")
 
         # Entradas
@@ -70,11 +92,15 @@ class CLPGUI:
         btn_exec = ttk.Button(frame_control, text="Executar Programa", command=self.load_program_from_text)
         btn_exec.grid(row=0, column=5, padx=5, pady=5)
 
-        btn_sim = ttk.Button(self.root, text="Simulação Esteira", command=self.open_simulation_window)
-        btn_sim.grid(row=3, column=0, columnspan=2, pady=10)
+        # Novo frame para o botão de simulação
+        frame_sim = ttk.Frame(self.content_frame)
+        frame_sim.grid(row=3, column=0, columnspan=2, pady=10)
+
+        btn_sim = ttk.Button(frame_sim, text="Simulação Esteira", command=self.open_simulation_window)
+        btn_sim.grid(row=0, column=0)
 
         # Data Table de variáveis
-        frame_table = ttk.LabelFrame(self.root, text="Data Table (Variáveis)")
+        frame_table = ttk.LabelFrame(self.content_frame, text="Data Table (Variáveis)")
         frame_table.grid(row=2, column=0, columnspan=2, padx=10, pady=10, sticky="ew")
 
         columns = ("Tipo", "Nome", "Valor", "Preset", "Acumulado", "Done")
@@ -100,14 +126,27 @@ class CLPGUI:
         if mode == "RUN":
             self.clp.start()
             self.sim_paused = False
+            self.text_program.config(state="disabled")  # Desabilita edição
         elif mode == "STOP":
             self.clp.stop()
             self.sim_paused = True  # Pausa a simulação
+            self.text_program.config(state="disabled")  # Desabilita edição
         elif mode == "PROGRAM":
             self.clp.reset()
             self.sim_paused = True  # Pausa e reseta a simulação
-            self.text_program.config(state="normal")
+            self.text_program.config(state="normal")   # Habilita edição
             self.update_input_buttons()
+            # Zera os contadores da simulação, se existirem
+            if self.total_passaram is not None:
+                self.total_passaram.set(0)
+            if self.total_desviadas is not None:
+                self.total_desviadas.set(0)
+            if self.total_normais is not None:
+                self.total_normais.set(0)
+            if self.desviadas_medio_var is not None:
+                self.desviadas_medio_var.set(0)
+            if self.desviadas_pesado_var is not None:
+                self.desviadas_pesado_var.set(0)
         else:
             self.text_program.config(state="disabled")
         self.update_mode_buttons()
@@ -213,9 +252,9 @@ class CLPGUI:
         canvas.pack()
 
         # Contadores de caixas
-        total_passaram = tk.IntVar(value=0)
-        total_desviadas = tk.IntVar(value=0)
-        total_normais = tk.IntVar(value=0)
+        self.total_passaram = tk.IntVar(value=0)
+        self.total_desviadas = tk.IntVar(value=0)
+        self.total_normais = tk.IntVar(value=0)
 
         # Controle de setpoints
         tk.Label(sim_win, text="Setpoint Médio (kg):").pack(side="left")
@@ -232,17 +271,17 @@ class CLPGUI:
         frame_count = tk.Frame(sim_win)
         frame_count.pack(side="bottom", fill="x")
         tk.Label(frame_count, text="Total Passaram:").pack(side="left")
-        tk.Label(frame_count, textvariable=total_passaram, width=4).pack(side="left")
+        tk.Label(frame_count, textvariable=self.total_passaram, width=4).pack(side="left")
         tk.Label(frame_count, text=" | Desviadas:").pack(side="left")
-        tk.Label(frame_count, textvariable=total_desviadas, width=4).pack(side="left")
+        tk.Label(frame_count, textvariable=self.total_desviadas, width=4).pack(side="left")
         tk.Label(frame_count, text=" | Desv. Médio:").pack(side="left")
-        desviadas_medio_var = tk.IntVar(value=0)
-        tk.Label(frame_count, textvariable=desviadas_medio_var, width=4).pack(side="left")
+        self.desviadas_medio_var = tk.IntVar(value=0)
+        tk.Label(frame_count, textvariable=self.desviadas_medio_var, width=4).pack(side="left")
         tk.Label(frame_count, text=" | Desv. Pesado:").pack(side="left")
-        desviadas_pesado_var = tk.IntVar(value=0)
-        tk.Label(frame_count, textvariable=desviadas_pesado_var, width=4).pack(side="left")
+        self.desviadas_pesado_var = tk.IntVar(value=0)
+        tk.Label(frame_count, textvariable=self.desviadas_pesado_var, width=4).pack(side="left")
         tk.Label(frame_count, text=" | Entregues:").pack(side="left")
-        tk.Label(frame_count, textvariable=total_normais, width=4).pack(side="left")
+        tk.Label(frame_count, textvariable=self.total_normais, width=4).pack(side="left")
 
         # Variáveis de simulação
         boxes = []
@@ -311,21 +350,22 @@ class CLPGUI:
             self.clp.inputs[3] = (peso_caixa >= setpoint_pesado_var.get()) if presenca else False
 
             # Contagem de caixas
-            count_passaram = total_passaram.get()
-            count_desviadas = total_desviadas.get()
-            count_normais = total_normais.get()
-            count_desviadas_medio = 0
-            count_desviadas_pesado = 0
+            count_passaram = self.total_passaram.get()
+            count_desviadas = self.total_desviadas.get()
+            count_normais = self.total_normais.get()
+            # Use os acumuladores atuais
+            count_desviadas_medio = self.desviadas_medio_var.get()
+            count_desviadas_pesado = self.desviadas_pesado_var.get()
             novas_caixas = []
             for box in boxes:
                 if box.get("desviado") == "medio" and box["y"] >= 200:
                     count_passaram += 1
                     count_desviadas += 1
-                    count_desviadas_medio += 1
+                    count_desviadas_medio += 1  # Acumula!
                 elif box.get("desviado") == "pesado" and box["y"] <= 0:
                     count_passaram += 1
                     count_desviadas += 1
-                    count_desviadas_pesado += 1
+                    count_desviadas_pesado += 1  # Acumula!
                 elif not box.get("desviado") and box["x"] >= 570:
                     count_passaram += 1
                     count_normais += 1
@@ -333,11 +373,11 @@ class CLPGUI:
                     novas_caixas.append(box)
             boxes[:] = novas_caixas
 
-            total_passaram.set(count_passaram)
-            total_desviadas.set(count_desviadas)
-            total_normais.set(count_normais)
-            desviadas_medio_var.set(count_desviadas_medio)
-            desviadas_pesado_var.set(count_desviadas_pesado)
+            self.total_passaram.set(count_passaram)
+            self.total_desviadas.set(count_desviadas)
+            self.total_normais.set(count_normais)
+            self.desviadas_medio_var.set(count_desviadas_medio)
+            self.desviadas_pesado_var.set(count_desviadas_pesado)
 
             # Exiba os contadores na interface (opcional)
             # Exemplo: print(f"Desviadas Médio: {count_desviadas_medio}, Desviadas Pesado: {count_desviadas_pesado}")

@@ -57,3 +57,25 @@ M3: Memória auxiliar para indicar quando C1 atingiu 2.
 Q4: Ativado por 1 segundo (TON T0 10) sempre que 3 caixas médias forem desviadas.
 Q5: Ativado por 1 segundo (TON T1 10) sempre que 2 caixas pesadas forem desviadas.
 
+# // Código 1: Esteira sempre ligada, desvia apenas caixas pesadas
+LD TRUE
+OUT Q1
+LD I1
+AND I3
+OUT Q3
+NOT
+OUT Q1
+
+# // Código 2: Desvia médias e pesadas, esteira só liga se passaram 5 caixas
+LD I5
+OUT Q1
+LD I1
+AND I2
+OUT Q2
+NOT
+OUT Q1
+LD I1
+AND I3
+OUT Q3
+NOT
+OUT Q1
