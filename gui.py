@@ -209,16 +209,36 @@ class CLPGUI:
         canvas = tk.Canvas(sim_win, width=600, height=200, bg="white")
         canvas.pack()
 
+        # Contadores de caixas
+        total_passaram = tk.IntVar(value=0)
+        total_desviadas = tk.IntVar(value=0)
+        total_normais = tk.IntVar(value=0)
+
         # Controle de setpoint
         tk.Label(sim_win, text="Setpoint (kg):").pack(side="left")
         setpoint_var = tk.IntVar(value=5)
         setpoint_spin = tk.Spinbox(sim_win, from_=1, to=10, textvariable=setpoint_var, width=3)
         setpoint_spin.pack(side="left")
 
+        # Exibição dos contadores
+        frame_count = tk.Frame(sim_win)
+        frame_count.pack(side="bottom", fill="x")
+        tk.Label(frame_count, text="Total:").pack(side="left")
+        tk.Label(frame_count, textvariable=total_passaram, width=4).pack(side="left")
+        tk.Label(frame_count, text=" | Desviadas:").pack(side="left")
+        tk.Label(frame_count, textvariable=total_desviadas, width=4).pack(side="left")
+        tk.Label(frame_count, text=" | Entregues:").pack(side="left")
+        tk.Label(frame_count, textvariable=total_normais, width=4).pack(side="left")
+
         # Variáveis de simulação
         boxes = []
         esteira_on = False
         pistao_on = False
+
+        # Para uso como entradas digitais do CLP
+        self.caixas_passaram = 0
+        self.caixas_desviadas = 0
+        self.caixas_normais = 0
 
         # Definição de pesos e cores
         pesos_cores = [
@@ -235,7 +255,6 @@ class CLPGUI:
 
         def update_sim():
             nonlocal esteira_on, pistao_on
-            # Só atualiza simulação se estiver em modo RUN
             if self.clp.mode != "RUN":
                 draw_sim()
                 sim_win.after(100, update_sim)
@@ -263,7 +282,32 @@ class CLPGUI:
             self.clp.inputs[1] = presenca
             self.clp.inputs[2] = (peso_caixa >= setpoint_var.get()) if presenca else False
 
-            boxes[:] = [box for box in boxes if (not box["desviado"] and box["x"] < 570) or (box["desviado"] and box.get("y", 110) < 200)]
+            # Contagem de caixas
+            count_passaram = total_passaram.get()
+            count_desviadas = total_desviadas.get()
+            count_normais = total_normais.get()
+            novas_caixas = []
+            for box in boxes:
+                # Caixa desviada saiu da tela
+                if box["desviado"] and box.get("y", 110) >= 200:
+                    count_passaram += 1
+                    count_desviadas += 1
+                # Caixa normal saiu da esteira
+                elif not box["desviado"] and box["x"] >= 570:
+                    count_passaram += 1
+                    count_normais += 1
+                else:
+                    novas_caixas.append(box)
+            boxes[:] = novas_caixas
+
+            total_passaram.set(count_passaram)
+            total_desviadas.set(count_desviadas)
+            total_normais.set(count_normais)
+
+            # Atualiza variáveis para uso no CLP (exemplo: entradas I6, I7, I5)
+            self.clp.inputs[5] = count_passaram >= 5   # I5: 5 caixas passaram
+            self.clp.inputs[6] = count_desviadas >= 3  # I6: 3 caixas desviadas
+            self.clp.inputs[7] = count_normais >= 2    # I7: 2 caixas normais
 
             if not boxes or boxes[-1]["x"] > 120:
                 add_box()
