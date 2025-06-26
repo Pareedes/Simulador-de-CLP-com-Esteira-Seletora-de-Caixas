@@ -1,0 +1,4 @@
+LD I0
+TON T0 50
+OUT Q0
+

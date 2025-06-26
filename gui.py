@@ -226,6 +226,12 @@ class CLPGUI:
 
         def update_sim():
             nonlocal esteira_on, pistao_on
+            # Só atualiza simulação se estiver em modo RUN
+            if self.clp.mode != "RUN":
+                draw_sim()
+                sim_win.after(100, update_sim)
+                return
+
             esteira_on = self.clp.outputs[1]  # Q1
             pistao_on = self.clp.outputs[2]   # Q2
 
@@ -236,28 +242,20 @@ class CLPGUI:
                 if sobre_sensor:
                     presenca = True
                     peso_caixa = box["peso"]
-                    # Se pistão ativado e peso >= setpoint, desvia a caixa
                     if pistao_on and box["peso"] >= setpoint_var.get():
                         box["desviado"] = True
 
-                # Só move a caixa se:
-                # - Ela não está sobre o sensor, ou
-                # - A esteira está ligada
                 if not sobre_sensor or esteira_on:
                     if not box["desviado"]:
                         box["x"] += 5
-                # Se desviado, move para baixo (expulsão)
                 if box["desviado"]:
                     box["y"] = box.get("y", 110) + 10  # move para baixo
 
-            self.clp.inputs[1] = presenca  # I1: presença
-            # I2: peso >= setpoint
+            self.clp.inputs[1] = presenca
             self.clp.inputs[2] = (peso_caixa >= setpoint_var.get()) if presenca else False
 
-            # Remove caixas que saíram da esteira ou foram expulsas para fora da área
             boxes[:] = [box for box in boxes if (not box["desviado"] and box["x"] < 570) or (box["desviado"] and box.get("y", 110) < 200)]
 
-            # Adiciona nova caixa se necessário
             if not boxes or boxes[-1]["x"] > 120:
                 add_box()
 
