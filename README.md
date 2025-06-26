@@ -16,6 +16,8 @@ Simular o comportamento de um CLP (Controlador Lógico Programável), um interpr
 | `open_simulation_window` | Simulação visual da esteira seletora.                                           |
 | `__main__`               | Inicia a aplicação com interface Tkinter.                                       |
 
+Para rodar a aplicação, basta baixar o projeto e rodar gui.py. A aplicação também pode ser feita a partir dele, e já foi criada e disponibilizada para o professor.
+
 ---
 
 ## 🔁 Ciclo de Varredura do CLP
