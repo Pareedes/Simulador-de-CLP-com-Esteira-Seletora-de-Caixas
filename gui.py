@@ -35,6 +35,10 @@ class CLPGUI:
 
         self.build_ui()
 
+        self.clp.inputs = [False] * 8
+        self.update_input_buttons()
+
+
         # Atualização periódica da interface
         self.update_gui()
 
@@ -240,7 +244,7 @@ class CLPGUI:
                     counter['done']
                 )
             )
-
+        self.update_input_buttons()
         # Loop de atualização
         self.root.after(200, self.update_gui)
         self.update_mode_buttons()
@@ -282,6 +286,18 @@ class CLPGUI:
         tk.Label(frame_count, textvariable=self.desviadas_pesado_var, width=4).pack(side="left")
         tk.Label(frame_count, text=" | Entregues:").pack(side="left")
         tk.Label(frame_count, textvariable=self.total_normais, width=4).pack(side="left")
+                # --- NOVO BLOCO: Botões manuais para I5, I6, I7 ---
+        frame_inputs_manual = tk.Frame(sim_win)
+        frame_inputs_manual.pack(side="bottom", pady=5)
+
+        def toggle_I(index):
+            self.clp.inputs[index] = not self.clp.inputs[index]
+            self.update_input_buttons()
+
+        tk.Button(frame_inputs_manual, text="Botão (I5)", command=lambda: toggle_I(5)).pack(side="left", padx=5)
+        tk.Button(frame_inputs_manual, text="Botão (I6)", command=lambda: toggle_I(6)).pack(side="left", padx=5)
+        tk.Button(frame_inputs_manual, text="Botão (I7)", command=lambda: toggle_I(7)).pack(side="left", padx=5)
+
 
         # Variáveis de simulação
         boxes = []
@@ -383,13 +399,17 @@ class CLPGUI:
             # Exemplo: print(f"Desviadas Médio: {count_desviadas_medio}, Desviadas Pesado: {count_desviadas_pesado}")
 
             # Atualiza variáveis para uso no CLP
-            self.clp.inputs[5] = count_passaram >= 5
-            self.clp.inputs[6] = count_desviadas >= 3
-            self.clp.inputs[7] = count_normais >= 2
+            #self.clp.inputs[5] = count_passaram >= 5
+            #self.clp.inputs[6] = count_desviadas >= 3
+            #self.clp.inputs[7] = count_normais >= 2
 
             # Você pode usar memórias ou outras entradas para expor os contadores individuais:
             self.clp.memories[10] = count_desviadas_medio  # Exemplo: M10 = desviadas médio
             self.clp.memories[11] = count_desviadas_pesado # Exemplo: M11 = desviadas pesado
+            self.clp.memories[20] = count_passaram  # Total geral
+            self.clp.memories[21] = count_desviadas  # Total desviadas
+            self.clp.memories[22] = count_normais    # Total normais
+
 
             if not boxes or boxes[-1]["x"] > 120:
                 add_box()
