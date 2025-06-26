@@ -87,6 +87,14 @@ class CLPGUI:
     def toggle_input(self, idx):
         self.clp.inputs[idx] = not self.clp.inputs[idx]
 
+    def update_input_buttons(self):
+        # Sincroniza os botões de entrada com o estado real das entradas
+        for i, btn in enumerate(self.input_buttons):
+            if self.clp.inputs[i]:
+                btn.state(['selected'])
+            else:
+                btn.state(['!selected'])
+
     def set_mode(self, mode):
         self.clp.set_mode(mode)
         if mode == "RUN":
@@ -96,6 +104,7 @@ class CLPGUI:
         if mode == "PROGRAM":
             self.clp.reset()
             self.text_program.config(state="normal")
+            self.update_input_buttons()  # <-- Adicione esta linha
         else:
             self.text_program.config(state="disabled")
         self.update_mode_buttons()
