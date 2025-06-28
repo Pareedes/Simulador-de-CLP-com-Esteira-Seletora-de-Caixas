@@ -21,7 +21,7 @@
     NOT
     OUT Q1
 
-# // Código 3: Manual com Botões - Desbloquea esteita, medio, pesado
+# // Código 3: Manual com Botões - I5 desbloqueia a esteira, I6 desvia médias e I7 pesadas
 
     LD I5
     OUT Q1
