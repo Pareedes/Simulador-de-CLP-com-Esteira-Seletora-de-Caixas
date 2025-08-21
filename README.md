@@ -119,7 +119,7 @@ Botões na simulação para controlar manualmente as entradas:
 
 [Vídeo Tutorial de Utilização do Simulador de CLP - Seletor de Caixas](https://www.youtube.com/watch?v=MqdqrlUBxjM)
 
-[Link para relatório final do projeto](./RelatórioProjetoFinalCLP-Gabriel Paredes,Vitor Augusto, Kelmson Leandro.pdf)
+[Link para relatório final do projeto](/RelatorioProjetoFinalCLP.pdf)
 
 ---
 
