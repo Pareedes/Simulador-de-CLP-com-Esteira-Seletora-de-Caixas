@@ -115,6 +115,12 @@ Botões na simulação para controlar manualmente as entradas:
 
 ---
 
+## 🔘 Vídeo demonstração/tutorial de uso
+
+[Tutorial de Utilização do Simulador de CLP - Seletor de Caixas](https://www.youtube.com/watch?v=MqdqrlUBxjM)
+
+---
+
 ## 🛠 Possíveis Expansões Futuras
 
 * Criação de perfis de caixa com peso ajustável.
